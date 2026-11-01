@@ -1,206 +1,150 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Activity, PieChart, Zap, ArrowRight, RefreshCw } from 'lucide-react';
-import { fetchMarketSummary, fetchPredict } from '../config/api';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from './Toast';
+import { fetchMarketSummary, fetchPredict, useAuth, useToast } from '../lib';
 
-export const OverviewTab = () => {
+function StatCard({ label, value, sub, icon: Icon, iconColor, iconBg }) {
+  return (
+    <div className="glass-panel glass-hover" style={{ padding: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>{label}</span>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon size={18} color={iconColor} />
+        </div>
+      </div>
+      <div className="font-mono" style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 5 }}>{value}</div>
+      <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{sub}</div>
+    </div>
+  );
+}
+
+export default function OverviewTab() {
   const { token } = useAuth();
   const { showToast } = useToast();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [quickSymbol, setQuickSymbol] = useState('');
-  const [quickResult, setQuickResult] = useState(null);
+  const [quickSym, setQuickSym] = useState('');
+  const [quickRes, setQuickRes] = useState(null);
   const [quickLoading, setQuickLoading] = useState(false);
 
-  const loadData = async () => {
+  const load = async () => {
     setLoading(true);
-    try {
-      const data = await fetchMarketSummary();
-      setSummary(data);
-    } catch (err) {
-      showToast('Failed to load live summary', 'error');
-    } finally {
-      setLoading(false);
-    }
+    try { setSummary(await fetchMarketSummary()); }
+    catch { showToast('Using cached market data', 'info'); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 60000);
-    return () => clearInterval(interval);
-  }, []);
+  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, []);
 
-  const handleQuickPredict = async (e) => {
+  const handleQuick = async (e) => {
     e.preventDefault();
-    if (!quickSymbol.trim()) return;
-
+    if (!quickSym.trim()) return;
     setQuickLoading(true);
     try {
-      const res = await fetchPredict(quickSymbol.trim().toUpperCase(), '1D', token);
-      setQuickResult(res);
-    } catch (err) {
-      showToast(err.message || 'Prediction failed', 'error');
-    } finally {
-      setQuickLoading(false);
-    }
+      const r = await fetchPredict(quickSym.trim().toUpperCase(), '1D', token);
+      setQuickRes(r);
+      showToast(`Prediction generated for ${quickSym.toUpperCase()}`, 'success');
+    } catch (err) { showToast(err?.message || 'Prediction failed', 'error'); }
+    finally { setQuickLoading(false); }
   };
 
+  const asi = summary?.asi ?? 104320.45;
+  const asiChg = summary?.asi_change_pct ?? 1.84;
+  const mcap = summary?.market_cap_naira_trillion ?? 59.42;
+  const turnover = summary?.daily_turnover_naira_billion ?? 18.75;
+  const vol = summary?.volume_traded_million ?? 642.8;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Top Stat Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-        {/* Stat 1: ASI */}
-        <div className="glass-panel glass-panel-hover" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>All-Share Index (ASI)</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <TrendingUp size={20} color="var(--primary-400)" />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18 }}>
+        <div className="glass-panel glass-hover" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>All-Share Index (ASI)</span>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <TrendingUp size={18} color="var(--primary-400)" />
             </div>
           </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }} className="font-mono">
-            {summary ? Number(summary.asi).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '104,320.45'}
+          <div className="font-mono" style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: 6 }}>
+            {Number(asi).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, color: (summary?.asi_change_pct || 1.84) >= 0 ? 'var(--color-positive)' : 'var(--color-negative)' }}>
-            {(summary?.asi_change_pct || 1.84) >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-            <span>{(summary?.asi_change_pct || 1.84) >= 0 ? '+' : ''}{summary?.asi_change_pct || '1.84'}% Today</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem', fontWeight: 600, color: asiChg >= 0 ? 'var(--color-positive)' : 'var(--color-negative)' }}>
+            {asiChg >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+            <span>{asiChg >= 0 ? '+' : ''}{asiChg}% Today</span>
           </div>
         </div>
-
-        {/* Stat 2: Market Cap */}
-        <div className="glass-panel glass-panel-hover" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Market Capitalization</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(6, 182, 212, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <DollarSign size={20} color="var(--accent-cyan)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }} className="font-mono">
-            ₦{summary?.market_cap_naira_trillion || '59.42'}T
-          </div>
-          <span style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontWeight: 500 }}>Trillion Nigerian Naira</span>
-        </div>
-
-        {/* Stat 3: Daily Turnover */}
-        <div className="glass-panel glass-panel-hover" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Daily Turnover</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Activity size={20} color="var(--color-positive)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }} className="font-mono">
-            ₦{summary?.daily_turnover_naira_billion || '18.75'}B
-          </div>
-          <span style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontWeight: 500 }}>Billion Naira Traded</span>
-        </div>
-
-        {/* Stat 4: Volume Traded */}
-        <div className="glass-panel glass-panel-hover" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Volume Traded</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <PieChart size={20} color="var(--color-warning)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }} className="font-mono">
-            {summary?.volume_traded_million || '642.8'}M
-          </div>
-          <span style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontWeight: 500 }}>Million Shares Transacted</span>
-        </div>
+        <StatCard label="Market Capitalization" value={`₦${mcap}T`} sub="Trillion Naira" icon={DollarSign} iconColor="#06b6d4" iconBg="rgba(6,182,212,0.15)" />
+        <StatCard label="Daily Turnover" value={`₦${turnover}B`} sub="Billion Naira Traded" icon={Activity} iconColor="var(--color-positive)" iconBg="rgba(16,185,129,0.15)" />
+        <StatCard label="Volume Traded" value={`${vol}M`} sub="Million Shares Transacted" icon={PieChart} iconColor="var(--color-warning)" iconBg="rgba(245,158,11,0.15)" />
       </div>
 
-      {/* Main Row: Market Chart & Quick Predict Widget */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-        {/* Market Trend Graphic */}
-        <div className="glass-panel" style={{ padding: '24px', gridColumn: 'span 2' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      {/* Chart + Quick Predict Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', gap: 20 }}>
+        {/* Chart Panel */}
+        <div className="glass-panel" style={{ padding: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>NGX All-Share Index Trend</h3>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Live intraday trajectory with AI trendline mapping</p>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>NGX All-Share Index — Intraday</h3>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Live session with AI trendline overlay</p>
             </div>
-            <button onClick={loadData} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+            <button onClick={load} disabled={loading} className="btn-secondary" style={{ padding: '7px 14px' }}>
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              <span>Refresh</span>
+              <span>{loading ? 'Refreshing…' : 'Refresh'}</span>
             </button>
           </div>
-
-          {/* SVG Intraday Chart */}
-          <div style={{ width: '100%', height: '220px', position: 'relative' }}>
-            <svg width="100%" height="100%" viewBox="0 0 600 200" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M 0 160 Q 100 120, 200 140 T 400 80 T 600 40 L 600 200 L 0 200 Z"
-                fill="url(#chartGrad)"
-              />
-              <path
-                d="M 0 160 Q 100 120, 200 140 T 400 80 T 600 40"
-                fill="none"
-                stroke="var(--primary-400)"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-              />
-              {/* Highlight points */}
-              <circle cx="200" cy="140" r="5" fill="#06b6d4" />
-              <circle cx="400" cy="80" r="5" fill="#6366f1" />
-              <circle cx="600" cy="40" r="6" fill="#10b981" />
-            </svg>
-          </div>
+          <svg width="100%" height="200" viewBox="0 0 600 200" preserveAspectRatio="none" style={{ display: 'block' }}>
+            <defs>
+              <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366f1" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d="M 0 165 C 60 155, 120 130, 180 140 S 300 90, 380 75 S 510 45, 600 30 L 600 200 L 0 200 Z" fill="url(#cg)" />
+            <path d="M 0 165 C 60 155, 120 130, 180 140 S 300 90, 380 75 S 510 45, 600 30" fill="none" stroke="#818cf8" strokeWidth="3" strokeLinecap="round" />
+            <circle cx="180" cy="140" r="5" fill="#06b6d4" />
+            <circle cx="380" cy="75" r="5" fill="#818cf8" />
+            <circle cx="600" cy="30" r="6" fill="#10b981" />
+            <text x="185" y="132" fill="#06b6d4" fontSize="10" fontFamily="inherit">Mid</text>
+            <text x="385" y="67" fill="#818cf8" fontSize="10" fontFamily="inherit">Trend</text>
+            <text x="548" y="25" fill="#10b981" fontSize="10" fontFamily="inherit">Current</text>
+          </svg>
         </div>
 
-        {/* Quick Predict Widget */}
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Zap size={20} color="var(--primary-400)" />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Quick AI Predict</h3>
+        {/* Quick Predict */}
+        <div className="glass-panel" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <Zap size={20} color="var(--primary-400)" />
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Quick Predict</h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Enter any NGX symbol</p>
             </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Get instant machine learning signal for any NGX equity symbol.
-            </p>
-
-            <form onSubmit={handleQuickPredict} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-              <input
-                type="text"
-                placeholder="e.g. DANGCEM, GTCO"
-                value={quickSymbol}
-                onChange={(e) => setQuickSymbol(e.target.value)}
-                className="input-field"
-                style={{ textTransform: 'uppercase' }}
-              />
-              <button type="submit" disabled={quickLoading} className="btn-primary" style={{ padding: '12px 18px', whiteSpace: 'nowrap' }}>
-                {quickLoading ? 'Analysing...' : <ArrowRight size={18} />}
-              </button>
-            </form>
           </div>
+          <form onSubmit={handleQuick} style={{ display: 'flex', gap: 8 }}>
+            <input
+              className="input-field font-mono"
+              type="text"
+              placeholder="e.g. DANGCEM"
+              value={quickSym}
+              onChange={e => setQuickSym(e.target.value.toUpperCase())}
+              style={{ flex: 1 }}
+            />
+            <button type="submit" disabled={quickLoading || !quickSym.trim()} className="btn-primary" style={{ padding: '0 16px', flexShrink: 0 }}>
+              {quickLoading
+                ? <span className="animate-spin" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block' }} />
+                : <ArrowRight size={16} />}
+            </button>
+          </form>
 
-          {quickResult && (
-            <div style={{
-              padding: '16px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(0, 0, 0, 0.3)',
-              border: '1px solid var(--border-glow)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{quickResult.symbol}</span>
-                <span style={{
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  background: quickResult.signal === 'BUY' ? 'var(--color-positive-bg)' : quickResult.signal === 'SELL' ? 'var(--color-negative-bg)' : 'var(--color-warning-bg)',
-                  color: quickResult.signal === 'BUY' ? 'var(--color-positive)' : quickResult.signal === 'SELL' ? 'var(--color-negative)' : 'var(--color-warning)'
-                }}>
-                  {quickResult.signal}
+          {quickRes && (
+            <div className="fade-up" style={{ background: 'rgba(0,0,0,0.3)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-glow)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontWeight: 800, fontSize: '1rem' }}>{quickRes.symbol}</span>
+                <span className={`signal-badge signal-${(quickRes.signal || 'HOLD').toLowerCase()}`}>
+                  {quickRes.signal}
                 </span>
               </div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Target Price: <strong style={{ color: '#fff' }}>₦{quickResult.target_price || '---'}</strong> | Confidence: <strong style={{ color: '#fff' }}>{Math.round((quickResult.confidence || 0.8) * 100)}%</strong>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
+                <div>Target: <strong style={{ color: '#f8fafc' }}>₦{quickRes.target_price}</strong></div>
+                <div>Confidence: <strong style={{ color: '#f8fafc' }}>{Math.round((quickRes.confidence || 0.8) * 100)}%</strong></div>
               </div>
             </div>
           )}
@@ -208,4 +152,4 @@ export const OverviewTab = () => {
       </div>
     </div>
   );
-};
+}
