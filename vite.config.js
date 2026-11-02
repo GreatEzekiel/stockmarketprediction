@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// GitHub Pages + relative asset resolution
 export default defineConfig({
   plugins: [react()],
+  base: './',
 })
